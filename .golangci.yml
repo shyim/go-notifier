@@ -1,0 +1,93 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - contextcheck
+    - dupl
+    - durationcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - gosec
+    - misspell
+    - nakedret
+    - nilerr
+    - nilnil
+    - noctx
+    - prealloc
+    - predeclared
+    - testifylint
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+
+    gocognit:
+      min-complexity: 25
+
+    gocyclo:
+      min-complexity: 25
+
+    goconst:
+      min-len: 3
+      min-occurrences: 5
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - whyNoLint
+
+    misspell:
+      locale: US
+
+    nakedret:
+      max-func-lines: 30
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+          - gosec
+          - gocognit
+          - errcheck
+          - goconst
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/shyim/go-notifier
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
