@@ -84,15 +84,10 @@ func (t *Transport) Send(ctx context.Context, message notifier.MessageInterface)
 	}
 
 	options["channel"] = chatID
-	options["text"] = chatMsg.GetSubject()
+	options[optionText] = chatMsg.GetSubject()
 	if t.webhookURL != "" {
-		for _, key := range []string{"post_at", "ts"} {
-			if _, exists := options[key]; exists {
-				return nil, fmt.Errorf("slack: incoming webhooks do not support %s", key)
-			}
-		}
-		for _, key := range []string{"channel", "recipient_id", "username", "icon_emoji", "icon_url", "as_user"} {
-			delete(options, key)
+		if err := prepareWebhookOptions(options); err != nil {
+			return nil, err
 		}
 	}
 
@@ -139,14 +134,7 @@ func (t *Transport) Send(ctx context.Context, message notifier.MessageInterface)
 	defer func() { _ = resp.Body.Close() }()
 
 	if t.webhookURL != "" {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("slack: read webhook response: %w", err)
-		}
-		if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "ok" {
-			return nil, fmt.Errorf("slack: webhook error (status %d): %s", resp.StatusCode, body)
-		}
-		return notifier.NewSentMessage(message, t.String()), nil
+		return t.readWebhookResponse(resp, message)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -202,4 +190,27 @@ func isEmptyValue(v any) bool {
 	default:
 		return false
 	}
+}
+
+func prepareWebhookOptions(options map[string]any) error {
+	for _, key := range []string{"post_at", "ts"} {
+		if _, exists := options[key]; exists {
+			return fmt.Errorf("slack: incoming webhooks do not support %s", key)
+		}
+	}
+	for _, key := range []string{"channel", "recipient_id", "username", "icon_emoji", "icon_url", "as_user"} {
+		delete(options, key)
+	}
+	return nil
+}
+
+func (t *Transport) readWebhookResponse(resp *http.Response, message notifier.MessageInterface) (*notifier.SentMessage, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("slack: read webhook response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "ok" {
+		return nil, fmt.Errorf("slack: webhook error (status %d): %s", resp.StatusCode, body)
+	}
+	return notifier.NewSentMessage(message, t.String()), nil
 }
