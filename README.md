@@ -14,6 +14,7 @@ go get github.com/shyim/go-notifier
 |----------|------------|
 | Telegram | `telegram://BOT_TOKEN@default?channel=CHAT_ID` |
 | Slack | `slack://BOT_TOKEN@default?channel=CHANNEL_ID` |
+| Slack incoming webhook | `slack://default?webhook_url=URL_ENCODED_WEBHOOK_URL` |
 | Discord | `discord://WEBHOOK_TOKEN@default?webhook_id=WEBHOOK_ID` |
 | Gotify | `gotify://APP_TOKEN@SERVER_HOST` |
 | Microsoft Teams | `microsoftteams://default?webhook_url=WEBHOOK_URL` |
@@ -160,6 +161,33 @@ message := notifier.NewChatMessage("Hello!").
         Block(slack.NewSectionBlock().Text("Section text")).
         Block(slack.NewDividerBlock()))
 ```
+
+#### Slack incoming webhooks
+
+Use a full incoming webhook URL instead of a bot token:
+
+```go
+transport := slack.NewWebhookTransport("https://hooks.slack.com/services/T000/B000/SECRET", nil)
+message := notifier.NewChatMessage("Hello from a webhook!").
+    WithOptions("slack", slack.NewOptions().
+        Block(slack.NewSectionBlock().Text("Deployment completed")))
+sent, err := transport.Send(ctx, message)
+```
+
+Or create the transport from a DSN (with `net/url` imported):
+
+```go
+transport, err := notifier.NewTransportFromDSN(
+    "slack://default?webhook_url=" + url.QueryEscape(webhookURL),
+)
+```
+
+Import `github.com/shyim/go-notifier/transport/slack` to register the DSN factory.
+Webhook messages reuse the `"slack"` options key, including blocks and `ThreadTs`.
+The channel, username, and icon are configured by Slack; overrides are omitted.
+Scheduling (`PostAt`) and message updates are rejected. Successful sends have an
+empty message ID because incoming webhooks do not return a message timestamp.
+See [Slack's incoming webhook documentation](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/).
 
 ### Discord
 
