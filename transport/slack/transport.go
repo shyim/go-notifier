@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/shyim/go-notifier"
 )
@@ -16,6 +18,16 @@ type Transport struct {
 	*notifier.AbstractTransport
 	accessToken string
 	channel     string
+	webhookURL  string
+}
+
+// NewWebhookTransport creates a Slack incoming webhook transport.
+// Messages use the channel configured for the webhook and the "slack" options key.
+func NewWebhookTransport(webhookURL string, client *http.Client) *Transport {
+	return &Transport{
+		AbstractTransport: notifier.NewAbstractTransport(client),
+		webhookURL:        webhookURL,
+	}
 }
 
 // NewTransport creates a new Slack transport.
@@ -32,6 +44,14 @@ func NewTransport(accessToken, channel string, client *http.Client) *Transport {
 }
 
 func (t *Transport) String() string {
+	if t.webhookURL != "" {
+		// The webhook path contains credentials; never include it in the transport name.
+		u, err := url.Parse(t.webhookURL)
+		if err != nil {
+			return "slack://default?webhook=true"
+		}
+		return fmt.Sprintf("slack://%s?webhook=true", u.Host)
+	}
 	endpoint := t.getEndpoint()
 	query := ""
 	if t.channel != "" {
@@ -58,11 +78,18 @@ func (t *Transport) Send(ctx context.Context, message notifier.MessageInterface)
 
 	options := make(map[string]any)
 	if opts, ok := chatMsg.GetOptions("slack").(*Options); ok {
-		options = opts.ToMap()
+		for key, value := range opts.ToMap() {
+			options[key] = value
+		}
 	}
 
 	options["channel"] = chatID
-	options["text"] = chatMsg.GetSubject()
+	options[optionText] = chatMsg.GetSubject()
+	if t.webhookURL != "" {
+		if err := prepareWebhookOptions(options); err != nil {
+			return nil, err
+		}
+	}
 
 	// Determine API method
 	apiMethod := "chat.postMessage"
@@ -87,19 +114,28 @@ func (t *Transport) Send(ctx context.Context, message notifier.MessageInterface)
 	}
 
 	endpoint := fmt.Sprintf("https://%s/api/%s", t.getEndpoint(), apiMethod)
+	if t.webhookURL != "" {
+		endpoint = t.webhookURL
+	}
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("slack: create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	req.Header.Set("Authorization", "Bearer "+t.accessToken)
+	if t.webhookURL == "" {
+		req.Header.Set("Authorization", "Bearer "+t.accessToken)
+	}
 
 	resp, err := t.AbstractTransport.GetClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("slack: send request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	if t.webhookURL != "" {
+		return t.readWebhookResponse(resp, message)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -154,4 +190,27 @@ func isEmptyValue(v any) bool {
 	default:
 		return false
 	}
+}
+
+func prepareWebhookOptions(options map[string]any) error {
+	for _, key := range []string{"post_at", "ts"} {
+		if _, exists := options[key]; exists {
+			return fmt.Errorf("slack: incoming webhooks do not support %s", key)
+		}
+	}
+	for _, key := range []string{"channel", "recipient_id", "username", "icon_emoji", "icon_url", "as_user"} {
+		delete(options, key)
+	}
+	return nil
+}
+
+func (t *Transport) readWebhookResponse(resp *http.Response, message notifier.MessageInterface) (*notifier.SentMessage, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("slack: read webhook response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "ok" {
+		return nil, fmt.Errorf("slack: webhook error (status %d): %s", resp.StatusCode, body)
+	}
+	return notifier.NewSentMessage(message, t.String()), nil
 }

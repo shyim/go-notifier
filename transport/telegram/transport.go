@@ -111,31 +111,7 @@ func (t *Transport) Send(ctx context.Context, message notifier.MessageInterface)
 			}
 		}
 
-		// Extract location coordinates to top-level for Telegram API
-		if loc, ok := filteredOptions["location"].(map[string]float64); ok {
-			filteredOptions["latitude"] = loc["latitude"]
-			filteredOptions["longitude"] = loc["longitude"]
-			delete(filteredOptions, "location")
-		}
-
-		// Extract venue coordinates to top-level for Telegram API
-		if venue, ok := filteredOptions["venue"].(map[string]any); ok {
-			filteredOptions["latitude"] = venue["latitude"]
-			filteredOptions["longitude"] = venue["longitude"]
-			filteredOptions["title"] = venue["title"]
-			filteredOptions["address"] = venue["address"]
-			delete(filteredOptions, "venue")
-		}
-
-		// Extract contact fields to top-level for Telegram API
-		if contact, ok := filteredOptions["contact"].(map[string]string); ok {
-			filteredOptions["phone_number"] = contact["phone_number"]
-			filteredOptions["first_name"] = contact["first_name"]
-			if lastName, exists := contact["last_name"]; exists {
-				filteredOptions["last_name"] = lastName
-			}
-			delete(filteredOptions, "contact")
-		}
+		flattenOptions(filteredOptions)
 
 		jsonBody, err := json.Marshal(filteredOptions)
 		if err != nil {
@@ -342,4 +318,32 @@ func escapeMarkdownV2(text string) string {
 		text = strings.ReplaceAll(text, char, "\\"+char)
 	}
 	return text
+}
+
+func flattenOptions(filteredOptions map[string]any) {
+	// Extract location coordinates to top-level for Telegram API
+	if loc, ok := filteredOptions["location"].(map[string]float64); ok {
+		filteredOptions["latitude"] = loc["latitude"]
+		filteredOptions["longitude"] = loc["longitude"]
+		delete(filteredOptions, "location")
+	}
+
+	// Extract venue coordinates to top-level for Telegram API
+	if venue, ok := filteredOptions["venue"].(map[string]any); ok {
+		filteredOptions["latitude"] = venue["latitude"]
+		filteredOptions["longitude"] = venue["longitude"]
+		filteredOptions["title"] = venue["title"]
+		filteredOptions["address"] = venue["address"]
+		delete(filteredOptions, "venue")
+	}
+
+	// Extract contact fields to top-level for Telegram API
+	if contact, ok := filteredOptions["contact"].(map[string]string); ok {
+		filteredOptions["phone_number"] = contact["phone_number"]
+		filteredOptions["first_name"] = contact["first_name"]
+		if lastName, exists := contact["last_name"]; exists {
+			filteredOptions["last_name"] = lastName
+		}
+		delete(filteredOptions, "contact")
+	}
 }

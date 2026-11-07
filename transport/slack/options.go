@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+const (
+	optionType = "type"
+	optionText = "text"
+)
+
 // Options implements MessageOptionsInterface for Slack.
 type Options struct {
 	options map[string]any
@@ -132,7 +137,7 @@ type SectionBlock struct {
 
 func NewSectionBlock() *SectionBlock {
 	return &SectionBlock{
-		options: map[string]any{"type": "section"},
+		options: map[string]any{optionType: "section"},
 		fields:  make([]map[string]any, 0),
 	}
 }
@@ -146,9 +151,9 @@ func (b *SectionBlock) Text(text string, markdown ...bool) *SectionBlock {
 	if !m {
 		blockType = "plain_text"
 	}
-	b.options["text"] = map[string]any{
-		"type": blockType,
-		"text": text,
+	b.options[optionText] = map[string]any{
+		optionType: blockType,
+		optionText: text,
 	}
 	return b
 }
@@ -166,8 +171,8 @@ func (b *SectionBlock) Field(text string, markdown ...bool) *SectionBlock {
 		fieldType = "plain_text"
 	}
 	b.fields = append(b.fields, map[string]any{
-		"type": fieldType,
-		"text": text,
+		optionType: fieldType,
+		optionText: text,
 	})
 	return b
 }
@@ -191,7 +196,7 @@ type DividerBlock struct {
 
 func NewDividerBlock() *DividerBlock {
 	return &DividerBlock{
-		options: map[string]any{"type": "divider"},
+		options: map[string]any{optionType: "divider"},
 	}
 }
 
@@ -206,7 +211,7 @@ type ContextBlock struct {
 
 func NewContextBlock() *ContextBlock {
 	return &ContextBlock{
-		options: map[string]any{"type": "context"},
+		options: map[string]any{optionType: "context"},
 	}
 }
 
@@ -231,7 +236,7 @@ type ImageBlock struct {
 func NewImageBlock(imageUrl, altText string) *ImageBlock {
 	return &ImageBlock{
 		options: map[string]any{
-			"type":      "image",
+			optionType:  "image",
 			"image_url": imageUrl,
 			"alt_text":  altText,
 		},
@@ -250,10 +255,10 @@ type HeaderBlock struct {
 func NewHeaderBlock(text string) *HeaderBlock {
 	return &HeaderBlock{
 		options: map[string]any{
-			"type": "header",
-			"text": map[string]any{
-				"type": "plain_text",
-				"text": text,
+			optionType: "header",
+			optionText: map[string]any{
+				optionType: "plain_text",
+				optionText: text,
 			},
 		},
 	}
@@ -270,7 +275,7 @@ type ActionsBlock struct {
 
 func NewActionsBlock() *ActionsBlock {
 	return &ActionsBlock{
-		options: map[string]any{"type": "actions"},
+		options: map[string]any{optionType: "actions"},
 	}
 }
 
@@ -300,10 +305,10 @@ type ButtonElement struct {
 func NewButtonElement(text string) *ButtonElement {
 	return &ButtonElement{
 		options: map[string]any{
-			"type": "button",
-			"text": map[string]any{
-				"type": "plain_text",
-				"text": text,
+			optionType: "button",
+			optionText: map[string]any{
+				optionType: "plain_text",
+				optionText: text,
 			},
 		},
 	}
@@ -342,7 +347,7 @@ type ImageElement struct {
 func NewImageElement(imageUrl, altText string) *ImageElement {
 	return &ImageElement{
 		options: map[string]any{
-			"type":      "image",
+			optionType:  "image",
 			"image_url": imageUrl,
 			"alt_text":  altText,
 		},

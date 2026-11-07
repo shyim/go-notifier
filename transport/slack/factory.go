@@ -3,6 +3,7 @@ package slack
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -33,11 +34,20 @@ var validTokenPattern = regexp.MustCompile(`^xox(b-|p-|a-2)`)
 
 // Create creates a Slack transport from a DSN.
 // DSN format: slack://<token>@default?channel=<channel_id>
+// For incoming webhooks: slack://default?webhook_url=<URL-encoded webhook URL>
 // Example: slack://xoxb-1234567890-1234567890123-abcdefghijklmnopqrstuvwx@default?channel=C1234567890
 func (f *TransportFactory) Create(dsn *notifier.DSN) (notifier.TransportInterface, error) {
 	scheme := dsn.GetScheme()
 	if scheme != "slack" {
 		return nil, fmt.Errorf("unsupported scheme: scheme \"%s\" not supported (supported: %s). DSN: %s", scheme, strings.Join(f.GetSupportedSchemes(), ", "), dsn.GetOriginalDSN())
+	}
+
+	if webhookURL := dsn.GetOption("webhook_url"); webhookURL != "" {
+		u, err := url.Parse(webhookURL)
+		if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Fragment != "" {
+			return nil, fmt.Errorf("slack: webhook_url must be an absolute HTTP or HTTPS URL without user info or fragment")
+		}
+		return NewWebhookTransport(webhookURL, f.client), nil
 	}
 
 	accessToken := dsn.GetUser()
